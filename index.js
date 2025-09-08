@@ -39,6 +39,7 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: "render-bot",
     store,
+    backupSyncIntervalMs: 60000,
      }),
   puppeteer: {
     headless: true,

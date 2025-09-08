@@ -39,8 +39,7 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: "render-bot",
     store,
-    backupSyncIntervalMs: 0,
-  }),
+     }),
   puppeteer: {
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],

@@ -26,15 +26,15 @@ export class SupabaseStore {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
-      .select("data")
+      .select("session")
       .eq("id", session)
       .single();
 
-    if (error || !data) {
+    if (error || !data || !data.session) {
       console.log("⚠️ No session found in DB");
       return null;
     }
-    return data.data;
+    return data.session;
   }
 
   // Save or update session
@@ -42,7 +42,7 @@ export class SupabaseStore {
     console.log("📝 Saving session:", session);
     const { error } = await this.supabase
       .from(this.table)
-      .upsert({ id: session, data }, { onConflict: "id" });
+      .upsert({ id: session, session: data }, { onConflict: "id" });
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);

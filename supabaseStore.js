@@ -1,3 +1,4 @@
+// supabaseStore.js
 export class SupabaseStore {
   constructor(supabase, table = "whatsapp_sessions") {
     this.supabase = supabase;
@@ -11,10 +12,9 @@ export class SupabaseStore {
       .from(this.table)
       .select("id")
       .eq("id", session)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === "PGRST116") return false; // no rows
       console.error("❌ sessionExists error:", error.message);
       return false;
     }
@@ -28,13 +28,13 @@ export class SupabaseStore {
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .single();
+      .maybeSingle();
 
     if (error || !data || !data.session) {
       console.log("⚠️ No session found in DB");
       return null;
     }
-    return data.session;
+    return data.session; // return stored JSON
   }
 
   // Save or update session

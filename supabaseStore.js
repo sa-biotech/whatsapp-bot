@@ -4,38 +4,39 @@ export class SupabaseStore {
     this.table = table;
   }
 
-  // --- Check if session exists
+  // Check if a session exists
   async sessionExists({ session }) {
     console.log("🔍 Checking if session exists:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("id")
       .eq("id", session)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
+    if (error) {
       console.error("❌ sessionExists error:", error.message);
+      return false;
     }
     return !!data;
   }
 
-  // --- Load session
+  // Load a session from DB
   async extract({ session }) {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .single();
+      .maybeSingle();
 
-    if (error || !data?.session) {
-      console.log("⚠️ No session found in DB");
+    if (error) {
+      console.error("❌ extract error:", error.message);
       return null;
     }
-    return data.session;
+    return data?.session || null;
   }
 
-  // --- Save or update session
+  // Save or update session
   async save({ session, data }) {
     console.log("📝 Saving session:", session);
     const { error } = await this.supabase
@@ -44,12 +45,12 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);
-    } else {
-      console.log("✅ Session saved in DB");
+      throw new Error(error.message);
     }
+    console.log("✅ Session saved in DB");
   }
 
-  // --- Delete session
+  // Delete session
   async delete({ session }) {
     console.log("🗑️ Deleting session:", session);
     const { error } = await this.supabase
@@ -59,8 +60,8 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase delete error:", error.message);
-    } else {
-      console.log("✅ Session deleted from DB");
+      throw new Error(error.message);
     }
+    console.log("✅ Session deleted from DB");
   }
 }

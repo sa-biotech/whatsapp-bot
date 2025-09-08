@@ -37,7 +37,7 @@ const store = new SupabaseStore(supabase, "whatsapp_sessions");
 // --- WhatsApp client ---
 const client = new Client({
   authStrategy: new RemoteAuth({
-    clientId: "render-bot",
+    clientId: "render-bot-2",
     store,
     backupSyncIntervalMs: 60000,
      }),

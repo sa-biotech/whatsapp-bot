@@ -1,43 +1,41 @@
-// supabaseStore.js
 export class SupabaseStore {
   constructor(supabase, table = "whatsapp_sessions") {
     this.supabase = supabase;
     this.table = table;
   }
 
-  // Check if a session exists
+  // --- Check if session exists
   async sessionExists({ session }) {
     console.log("🔍 Checking if session exists:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("id")
       .eq("id", session)
-      .maybeSingle();
+      .single();
 
-    if (error) {
+    if (error && error.code !== "PGRST116") {
       console.error("❌ sessionExists error:", error.message);
-      return false;
     }
     return !!data;
   }
 
-  // Load a session from DB
+  // --- Load session
   async extract({ session }) {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .maybeSingle();
+      .single();
 
-    if (error || !data || !data.session) {
+    if (error || !data?.session) {
       console.log("⚠️ No session found in DB");
       return null;
     }
-    return data.session; // return stored JSON
+    return data.session;
   }
 
-  // Save or update session
+  // --- Save or update session
   async save({ session, data }) {
     console.log("📝 Saving session:", session);
     const { error } = await this.supabase
@@ -46,12 +44,12 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);
-      throw new Error(error.message);
+    } else {
+      console.log("✅ Session saved in DB");
     }
-    console.log("✅ Session saved in DB");
   }
 
-  // Delete session
+  // --- Delete session
   async delete({ session }) {
     console.log("🗑️ Deleting session:", session);
     const { error } = await this.supabase
@@ -61,8 +59,8 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase delete error:", error.message);
-      throw new Error(error.message);
+    } else {
+      console.log("✅ Session deleted from DB");
     }
-    console.log("✅ Session deleted from DB");
   }
 }

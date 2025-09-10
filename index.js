@@ -37,7 +37,7 @@ const store = new SupabaseStore(supabase, "whatsapp_sessions");
 // --- WhatsApp client ---
 const client = new Client({
   authStrategy: new RemoteAuth({
-    clientId: "RemoteAuth-render-bot-new",
+    clientId: "render-bot-new",
     store,
     backupSyncIntervalMs: 60000,
     syncFullHistory: true,
@@ -66,33 +66,23 @@ client.on("qr", (qr) => {
 client.on("ready", () => {
   if (client.info && client.info.me) {
     console.log(
-      `✅ [RemoteAuth] WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
+      `✅ WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
     );
   } else {
-    console.log("✅ [RemoteAuth] WhatsApp ready!");
+    console.log("✅ WhatsApp ready!");
   }
 });
 
 client.on("authenticated", () => {
-  console.log("🔐 [RemoteAuth] Authenticated!");
+  console.log("🔐 Authenticated!");
 });
 
 client.on("auth_failure", (msg) => {
-  console.error("⚠️ [RemoteAuth] Auth failure:", msg);
+  console.error("⚠️ Auth failure:", msg);
 });
 
 client.on("disconnected", (reason) => {
-  console.warn("⚠️ [RemoteAuth] Disconnected:", reason);
-});
-
-// --- RemoteAuth debugging ---
-client.on("remote_session_saved", (session) => {
-  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
-  console.log("📦 Session data from event:", session);
-});
-
-client.on("remote_session_saved", () => {
-  console.log("💾 [RemoteAuth] Session was saved in DB.");
+  console.warn("⚠️ Disconnected:", reason);
 });
 
 // --- Handle incoming messages ---
@@ -125,6 +115,22 @@ client.on("message", async (msg) => {
   } catch (err) {
     console.error("❌ n8n webhook error:", err.message);
   }
+});
+
+// --- RemoteAuth Debug Events ---
+client.on("remote_session_saved", (session) => {
+  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
+  console.log("📦 [RemoteAuth] Session data from event:", session);
+});
+
+client.on("remote_session_saved_local", (session) => {
+  console.log("💾 [RemoteAuth] remote_session_saved_local triggered!");
+  console.log("📦 [RemoteAuth] Local session data from event:", session);
+});
+
+client.on("remote_session_saved_remote", (session) => {
+  console.log("💾 [RemoteAuth] remote_session_saved_remote triggered!");
+  console.log("📦 [RemoteAuth] Remote session data from event:", session);
 });
 
 // --- Start bot ---

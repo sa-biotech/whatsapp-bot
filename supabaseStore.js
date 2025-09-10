@@ -1,12 +1,11 @@
 // supabaseStore.js
-
 export class SupabaseStore {
   constructor(supabase, table = "whatsapp_sessions") {
     this.supabase = supabase;
     this.table = table;
   }
 
-  // --- Check if a session exists ---
+  // Check if a session exists
   async sessionExists({ session }) {
     console.log("🔍 [SupabaseStore] Checking if session exists:", session);
     const { data, error } = await this.supabase
@@ -23,12 +22,10 @@ export class SupabaseStore {
       console.error("❌ [SupabaseStore] sessionExists error:", error.message);
       return false;
     }
-
-    console.log("✅ [SupabaseStore] Session exists:", data.id);
     return !!data;
   }
 
-  // --- Load session from DB ---
+  // Load session from DB
   async extract({ session }) {
     console.log("📥 [SupabaseStore] Extracting session:", session);
     const { data, error } = await this.supabase
@@ -38,47 +35,36 @@ export class SupabaseStore {
       .single();
 
     if (error || !data) {
-      console.log("⚠️ [SupabaseStore] No session found in DB for:", session);
+      console.log("⚠️ [SupabaseStore] No session found in DB, returning null");
       return null;
     }
-
-    console.log("✅ [SupabaseStore] Session loaded from DB");
+    console.log("✅ [SupabaseStore] Session loaded from DB:", session);
     return data.session;
   }
 
-  // --- Save or update session ---
-  async save({ session, data }) {
+  // Save or update session
+  async save({ session, data, ...rest }) {
     console.log("📝 [SupabaseStore] Saving session:", session);
-
-    // Debug dump
-    console.log("📦 [SupabaseStore] Raw session data:", JSON.stringify(data, null, 2));
+    console.log("📦 [SupabaseStore] Raw session data:", data);
+    console.log("🛠️ [SupabaseStore] Extra payload:", rest);
 
     if (!data) {
       console.log("⚠️ [SupabaseStore] Skip saving null session:", session);
       return;
     }
 
-    // Try storing as JSONB
-    const payload = {
-      id: session,
-      session: data,
-    };
-
-    console.log("⬆️ [SupabaseStore] Upserting payload:", JSON.stringify(payload, null, 2));
-
     const { error } = await this.supabase
       .from(this.table)
-      .upsert(payload, { onConflict: "id" });
+      .upsert({ id: session, session: data }, { onConflict: "id" });
 
     if (error) {
-      console.error("❌ [SupabaseStore] Save error:", error.message);
+      console.error("❌ [SupabaseStore] Supabase save error:", error.message);
       throw new Error(error.message);
     }
-
-    console.log("✅ [SupabaseStore] Session saved in DB successfully");
+    console.log("✅ [SupabaseStore] Session saved in DB");
   }
 
-  // --- Delete session ---
+  // Delete session
   async delete({ session }) {
     console.log("🗑️ [SupabaseStore] Deleting session:", session);
     const { error } = await this.supabase
@@ -87,10 +73,9 @@ export class SupabaseStore {
       .eq("id", session);
 
     if (error) {
-      console.error("❌ [SupabaseStore] Delete error:", error.message);
+      console.error("❌ [SupabaseStore] Supabase delete error:", error.message);
       throw new Error(error.message);
     }
-
     console.log("✅ [SupabaseStore] Session deleted from DB");
   }
 }

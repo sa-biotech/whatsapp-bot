@@ -5,16 +5,15 @@ export class SupabaseStore {
   }
 
   // Check if a session exists
-  async sessionExists({ session }) {
-    console.log("🔍 Checking if session exists:", session);
+  async sessionExists({ session: id }) {
+    console.log("🔍 Checking if session exists:", id);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("id")
-      .eq("id", session)
-      .single();
+      .eq("id", id)
+      .maybeSingle();
 
     if (error) {
-      if (error.code === "PGRST116") return false; // no rows
       console.error("❌ sessionExists error:", error.message);
       return false;
     }
@@ -22,13 +21,13 @@ export class SupabaseStore {
   }
 
   // Load session from DB
-  async extract({ session }) {
-    console.log("📥 Extracting session:", session);
+  async extract({ session: id }) {
+    console.log("📥 Extracting session:", id);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
-      .eq("id", session)
-      .single();
+      .eq("id", id)
+      .maybeSingle();
 
     if (error || !data) {
       console.log("⚠️ No session found in DB, returning null");
@@ -38,11 +37,13 @@ export class SupabaseStore {
   }
 
   // Save or update session
-  async save({ session, data }) {
-    console.log("📝 Saving session:", session);
+  async save({ session: id, data }) {
+    const size = data ? JSON.stringify(data).length : 0;
+    console.log(`📝 Saving session: ${id} (size: ${size} bytes)`);
+
     const { error } = await this.supabase
       .from(this.table)
-      .upsert({ id: session, session: data }, { onConflict: "id" });
+      .upsert({ id, session: data }, { onConflict: "id" });
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);
@@ -52,12 +53,12 @@ export class SupabaseStore {
   }
 
   // Delete session
-  async delete({ session }) {
-    console.log("🗑️ Deleting session:", session);
+  async delete({ session: id }) {
+    console.log("🗑️ Deleting session:", id);
     const { error } = await this.supabase
       .from(this.table)
       .delete()
-      .eq("id", session);
+      .eq("id", id);
 
     if (error) {
       console.error("❌ Supabase delete error:", error.message);

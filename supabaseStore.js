@@ -1,5 +1,3 @@
-// supabaseStore.js
-
 export class SupabaseStore {
   constructor(supabase, table = "whatsapp_sessions") {
     this.supabase = supabase;
@@ -13,52 +11,38 @@ export class SupabaseStore {
       .from(this.table)
       .select("id")
       .eq("id", session)
-      .maybeSingle();
+      .single();
 
     if (error) {
+      if (error.code === "PGRST116") return false; // no rows
       console.error("❌ sessionExists error:", error.message);
       return false;
     }
     return !!data;
   }
 
-  // Load a session from DB
+  // Load session from DB
   async extract({ session }) {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .maybeSingle();
+      .single();
 
-    if (error) {
-      console.error("❌ extract error:", error.message);
-      return {};
+    if (error || !data) {
+      console.log("⚠️ No session found in DB, returning null");
+      return null;
     }
-
-    if (!data || !data.session) {
-      console.log("⚠️ No session found in DB");
-      return {};
-    }
-
-    return data.session; // must be JSON
+    return data.session;
   }
 
   // Save or update session
   async save({ session, data }) {
     console.log("📝 Saving session:", session);
-
-    if (!data || Object.keys(data).length === 0) {
-      console.warn("⚠️ Tried to save empty session, skipping.");
-      return;
-    }
-
     const { error } = await this.supabase
       .from(this.table)
-      .upsert(
-        { id: session, session: data }, // ✅ column is session (jsonb)
-        { onConflict: "id" }
-      );
+      .upsert({ id: session, session: data }, { onConflict: "id" });
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);

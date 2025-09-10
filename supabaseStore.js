@@ -4,7 +4,6 @@ export class SupabaseStore {
     this.table = table;
   }
 
-  // Check if a session exists
   async sessionExists({ session }) {
     console.log("🔍 Checking if session exists:", session);
     const { data, error } = await this.supabase
@@ -20,7 +19,6 @@ export class SupabaseStore {
     return !!data;
   }
 
-  // Load a session from DB
   async extract({ session }) {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
@@ -33,10 +31,15 @@ export class SupabaseStore {
       console.error("❌ extract error:", error.message);
       return null;
     }
-    return data?.session || null;
+
+    if (!data || !data.session) {
+      console.log("⚠️ No session found in DB, returning empty object");
+      return {}; // 👈 instead of null
+    }
+
+    return data.session;
   }
 
-  // Save or update session
   async save({ session, data }) {
     console.log("📝 Saving session:", session);
     const { error } = await this.supabase
@@ -45,12 +48,11 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase save error:", error.message);
-      throw new Error(error.message);
+      throw error;
     }
     console.log("✅ Session saved in DB");
   }
 
-  // Delete session
   async delete({ session }) {
     console.log("🗑️ Deleting session:", session);
     const { error } = await this.supabase
@@ -60,7 +62,7 @@ export class SupabaseStore {
 
     if (error) {
       console.error("❌ Supabase delete error:", error.message);
-      throw new Error(error.message);
+      throw error;
     }
     console.log("✅ Session deleted from DB");
   }

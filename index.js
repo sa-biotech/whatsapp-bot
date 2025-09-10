@@ -43,8 +43,6 @@ const client = new Client({
   }),
   puppeteer: {
     headless: true,
-    executablePath:
-      process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome",
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -57,6 +55,7 @@ const client = new Client({
     ],
   },
 });
+
 
 // --- Events ---
 client.on("qr", (qr) => {

@@ -5,67 +5,82 @@ export class SupabaseStore {
     this.table = table;
   }
 
-  // 🔍 Load session
-  async get(session) {
+  // Check if a session exists
+  async sessionExists({ session }) {
     console.log("🔍 [SupabaseStore] Checking if session exists:", session);
+    const { data, error } = await this.supabase
+      .from(this.table)
+      .select("id")
+      .eq("id", session)
+      .single();
 
+    if (error) {
+      if (error.code === "PGRST116") {
+        console.log("ℹ️ [SupabaseStore] No session found for:", session);
+        return false;
+      }
+      console.error("❌ [SupabaseStore] sessionExists error:", error.message);
+      return false;
+    }
+    return !!data;
+  }
+
+  // Load session from DB
+  async extract({ session }) {
+    console.log("📥 [SupabaseStore] Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .maybeSingle();
+      .single();
 
-    if (error) {
-      console.error("❌ [SupabaseStore] Load error:", error.message);
-      throw new Error(error.message);
-    }
-
-    if (data?.session) {
-      console.log("✅ [SupabaseStore] Found session:", session);
-      return data.session;
-    } else {
-      console.log("ℹ️ [SupabaseStore] No session found for:", session);
+    if (error || !data) {
+      console.log("⚠️ [SupabaseStore] No session found in DB, returning null");
       return null;
     }
+    console.log("✅ [SupabaseStore] Session loaded from DB:", session);
+    return data.session;
   }
 
-  // 💾 Save session
-  async save({ session, data }) {
-    console.log("📝 [SupabaseStore] Saving session:", session);
-    console.log("📦 [SupabaseStore] Raw session data:", data);
+  // Save or update session
+  async save(payload) {
+    console.log("📝 [SupabaseStore] Saving session...");
+    console.log("📦 [SupabaseStore] Full payload:", JSON.stringify(payload, null, 2));
 
-    // Always save something, even if empty
-    const payload = {
-      id: session,
-      session: data ?? {}, // store empty object if undefined
-    };
+    const { session, data, ...rest } = payload;
+
+    console.log("🔑 [SupabaseStore] session name:", session);
+    console.log("📦 [SupabaseStore] Raw session data:", data);
+    console.log("🛠️ [SupabaseStore] Extra payload:", rest);
+
+    if (!data) {
+      console.log("⚠️ [SupabaseStore] Skip saving null session:", session);
+      return;
+    }
 
     const { error } = await this.supabase
       .from(this.table)
-      .upsert(payload, { onConflict: "id" });
+      .upsert({ id: session, session: data }, { onConflict: "id" });
 
     if (error) {
-      console.error("❌ [SupabaseStore] Save error:", error.message);
+      console.error("❌ [SupabaseStore] Supabase save error:", error.message);
       throw new Error(error.message);
     }
-
-    console.log("✅ [SupabaseStore] Session saved in DB:", session);
+    console.log("✅ [SupabaseStore] Session saved in DB");
   }
 
-  // 🗑️ Delete session
-  async delete(session) {
+  // Delete session
+  async delete({ session }) {
     console.log("🗑️ [SupabaseStore] Deleting session:", session);
-
     const { error } = await this.supabase
       .from(this.table)
       .delete()
       .eq("id", session);
 
     if (error) {
-      console.error("❌ [SupabaseStore] Delete error:", error.message);
+      console.error("❌ [SupabaseStore] Supabase delete error:", error.message);
       throw new Error(error.message);
     }
-
-    console.log("✅ [SupabaseStore] Deleted session:", session);
+    console.log("✅ [SupabaseStore] Session deleted from DB");
   }
 }

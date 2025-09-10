@@ -40,6 +40,7 @@ const client = new Client({
     clientId: "render-bot-new",
     store,
     backupSyncIntervalMs: 60000,
+    syncFullHistory: true,
   }),
   puppeteer: {
     headless: true,
@@ -56,33 +57,42 @@ const client = new Client({
   },
 });
 
-
-// --- Events ---
-client.on("qr", (qr) => {
-  console.log("📲 QR RECEIVED - scan to login:");
-  qrcode.generate(qr, { small: true });
+// --- Extra RemoteAuth Debug Logs ---
+client.on("authenticated", () => {
+  console.log("🔐 [RemoteAuth] Authenticated!");
 });
 
 client.on("ready", () => {
   if (client.info && client.info.me) {
     console.log(
-      `✅ WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
+      `✅ [RemoteAuth] WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
     );
   } else {
-    console.log("✅ WhatsApp ready!");
+    console.log("✅ [RemoteAuth] WhatsApp ready (no client info)");
   }
 });
 
-client.on("authenticated", () => {
-  console.log("🔐 Authenticated!");
+client.on("remote_session_saved", (session) => {
+  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
+  console.log("📦 Session data from event:", JSON.stringify(session, null, 2));
+});
+
+client.on("remote_session_restored", () => {
+  console.log("♻️ [RemoteAuth] remote_session_restored triggered!");
 });
 
 client.on("auth_failure", (msg) => {
-  console.error("⚠️ Auth failure:", msg);
+  console.error("⚠️ [RemoteAuth] Auth failure:", msg);
 });
 
 client.on("disconnected", (reason) => {
-  console.warn("⚠️ Disconnected:", reason);
+  console.warn("⚠️ [RemoteAuth] Disconnected:", reason);
+});
+
+// --- QR Code Event ---
+client.on("qr", (qr) => {
+  console.log("📲 QR RECEIVED - scan to login:");
+  qrcode.generate(qr, { small: true });
 });
 
 // --- Handle incoming messages ---

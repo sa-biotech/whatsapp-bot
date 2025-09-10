@@ -1,10 +1,12 @@
+// supabaseStore.js
+
 export class SupabaseStore {
   constructor(supabase, table = "whatsapp_sessions") {
     this.supabase = supabase;
     this.table = table;
   }
 
-  // Check if session exists
+  // Check if a session exists
   async sessionExists({ session }) {
     console.log("🔍 Checking if session exists:", session);
     const { data, error } = await this.supabase
@@ -20,7 +22,7 @@ export class SupabaseStore {
     return !!data;
   }
 
-  // Load session from DB
+  // Load a session from DB
   async extract({ session }) {
     console.log("📥 Extracting session:", session);
     const { data, error } = await this.supabase
@@ -33,23 +35,34 @@ export class SupabaseStore {
       console.error("❌ extract error:", error.message);
       return {};
     }
+
     if (!data || !data.session) {
       console.log("⚠️ No session found in DB");
       return {};
     }
-    return data.session;
+
+    return data.session; // must be JSON
   }
 
-  // Save session
+  // Save or update session
   async save({ session, data }) {
     console.log("📝 Saving session:", session);
+
+    if (!data || Object.keys(data).length === 0) {
+      console.warn("⚠️ Tried to save empty session, skipping.");
+      return;
+    }
+
     const { error } = await this.supabase
       .from(this.table)
-      .upsert({ id: session, session: data }, { onConflict: "id" });
+      .upsert(
+        { id: session, session: data }, // ✅ column is session (jsonb)
+        { onConflict: "id" }
+      );
 
     if (error) {
-      console.error("❌ save error:", error.message);
-      throw error;
+      console.error("❌ Supabase save error:", error.message);
+      throw new Error(error.message);
     }
     console.log("✅ Session saved in DB");
   }
@@ -63,8 +76,8 @@ export class SupabaseStore {
       .eq("id", session);
 
     if (error) {
-      console.error("❌ delete error:", error.message);
-      throw error;
+      console.error("❌ Supabase delete error:", error.message);
+      throw new Error(error.message);
     }
     console.log("✅ Session deleted from DB");
   }

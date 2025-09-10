@@ -36,21 +36,25 @@ export class SupabaseStore {
     return data.session;
   }
 
-  // Save or update session
-  async save({ session: id, data }) {
-    const size = data ? JSON.stringify(data).length : 0;
-    console.log(`📝 Saving session: ${id} (size: ${size} bytes)`);
+// Save or update session
+async save({ session, data }) {
+  console.log("📝 Saving session:", session);
 
-    const { error } = await this.supabase
-      .from(this.table)
-      .upsert({ id, session: data }, { onConflict: "id" });
-
-    if (error) {
-      console.error("❌ Supabase save error:", error.message);
-      throw new Error(error.message);
-    }
-    console.log("✅ Session saved in DB");
+  if (!data) {
+    console.log("⚠️ Skip saving null session");
+    return;
   }
+
+  const { error } = await this.supabase
+    .from(this.table)
+    .upsert({ id: session, session: data }, { onConflict: "id" });
+
+  if (error) {
+    console.error("❌ Supabase save error:", error.message);
+    throw new Error(error.message);
+  }
+  console.log("✅ Session saved in DB");
+}
 
   // Delete session
   async delete({ session: id }) {

@@ -37,7 +37,7 @@ const store = new SupabaseStore(supabase, "whatsapp_sessions");
 // --- WhatsApp client ---
 const client = new Client({
   authStrategy: new RemoteAuth({
-    clientId: "render-bot-new",
+    clientId: "RemoteAuth-render-bot-new",
     store,
     backupSyncIntervalMs: 60000,
     syncFullHistory: true,
@@ -57,9 +57,10 @@ const client = new Client({
   },
 });
 
-// --- Extra RemoteAuth Debug Logs ---
-client.on("authenticated", () => {
-  console.log("🔐 [RemoteAuth] Authenticated!");
+// --- Events ---
+client.on("qr", (qr) => {
+  console.log("📲 QR RECEIVED - scan to login:");
+  qrcode.generate(qr, { small: true });
 });
 
 client.on("ready", () => {
@@ -68,17 +69,12 @@ client.on("ready", () => {
       `✅ [RemoteAuth] WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
     );
   } else {
-    console.log("✅ [RemoteAuth] WhatsApp ready (no client info)");
+    console.log("✅ [RemoteAuth] WhatsApp ready!");
   }
 });
 
-client.on("remote_session_saved", (session) => {
-  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
-  console.log("📦 Session data from event:", JSON.stringify(session, null, 2));
-});
-
-client.on("remote_session_restored", () => {
-  console.log("♻️ [RemoteAuth] remote_session_restored triggered!");
+client.on("authenticated", () => {
+  console.log("🔐 [RemoteAuth] Authenticated!");
 });
 
 client.on("auth_failure", (msg) => {
@@ -89,10 +85,14 @@ client.on("disconnected", (reason) => {
   console.warn("⚠️ [RemoteAuth] Disconnected:", reason);
 });
 
-// --- QR Code Event ---
-client.on("qr", (qr) => {
-  console.log("📲 QR RECEIVED - scan to login:");
-  qrcode.generate(qr, { small: true });
+// --- RemoteAuth debugging ---
+client.on("remote_session_saved", (session) => {
+  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
+  console.log("📦 Session data from event:", session);
+});
+
+client.on("remote_session_saved", () => {
+  console.log("💾 [RemoteAuth] Session was saved in DB.");
 });
 
 // --- Handle incoming messages ---

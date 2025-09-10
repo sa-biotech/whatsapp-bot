@@ -5,77 +5,67 @@ export class SupabaseStore {
     this.table = table;
   }
 
-  // Check if a session exists
-  async sessionExists({ session }) {
+  // 🔍 Load session
+  async get(session) {
     console.log("🔍 [SupabaseStore] Checking if session exists:", session);
-    const { data, error } = await this.supabase
-      .from(this.table)
-      .select("id")
-      .eq("id", session)
-      .single();
 
-    if (error) {
-      if (error.code === "PGRST116") {
-        console.log("ℹ️ [SupabaseStore] No session found for:", session);
-        return false;
-      }
-      console.error("❌ [SupabaseStore] sessionExists error:", error.message);
-      return false;
-    }
-    return !!data;
-  }
-
-  // Load session from DB
-  async extract({ session }) {
-    console.log("📥 [SupabaseStore] Extracting session:", session);
     const { data, error } = await this.supabase
       .from(this.table)
       .select("session")
       .eq("id", session)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
-      console.log("⚠️ [SupabaseStore] No session found in DB, returning null");
+    if (error) {
+      console.error("❌ [SupabaseStore] Load error:", error.message);
+      throw new Error(error.message);
+    }
+
+    if (data?.session) {
+      console.log("✅ [SupabaseStore] Found session:", session);
+      return data.session;
+    } else {
+      console.log("ℹ️ [SupabaseStore] No session found for:", session);
       return null;
     }
-    console.log("✅ [SupabaseStore] Session loaded from DB:", session);
-    return data.session;
   }
 
-  // Save or update session
-  async save({ session, data, ...rest }) {
+  // 💾 Save session
+  async save({ session, data }) {
     console.log("📝 [SupabaseStore] Saving session:", session);
     console.log("📦 [SupabaseStore] Raw session data:", data);
-    console.log("🛠️ [SupabaseStore] Extra payload:", rest);
 
-    if (!data) {
-      console.log("⚠️ [SupabaseStore] Skip saving null session:", session);
-      return;
-    }
+    // Always save something, even if empty
+    const payload = {
+      id: session,
+      session: data ?? {}, // store empty object if undefined
+    };
 
     const { error } = await this.supabase
       .from(this.table)
-      .upsert({ id: session, session: data }, { onConflict: "id" });
+      .upsert(payload, { onConflict: "id" });
 
     if (error) {
-      console.error("❌ [SupabaseStore] Supabase save error:", error.message);
+      console.error("❌ [SupabaseStore] Save error:", error.message);
       throw new Error(error.message);
     }
-    console.log("✅ [SupabaseStore] Session saved in DB");
+
+    console.log("✅ [SupabaseStore] Session saved in DB:", session);
   }
 
-  // Delete session
-  async delete({ session }) {
+  // 🗑️ Delete session
+  async delete(session) {
     console.log("🗑️ [SupabaseStore] Deleting session:", session);
+
     const { error } = await this.supabase
       .from(this.table)
       .delete()
       .eq("id", session);
 
     if (error) {
-      console.error("❌ [SupabaseStore] Supabase delete error:", error.message);
+      console.error("❌ [SupabaseStore] Delete error:", error.message);
       throw new Error(error.message);
     }
-    console.log("✅ [SupabaseStore] Session deleted from DB");
+
+    console.log("✅ [SupabaseStore] Deleted session:", session);
   }
 }

@@ -95,6 +95,9 @@ client.on("disconnected", (reason) => {
 
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
+  // Ignore system messages like 'status@broadcast'
+  if (msg.from === "status@broadcast") return;
+
   console.log(`📩 ${msg.from}: ${msg.body}`);
 
   if (!N8N_WEBHOOK_URL) return;
@@ -124,6 +127,7 @@ client.on("message", async (msg) => {
     console.error("❌ n8n webhook error:", err.message);
   }
 });
+
 
 // --- RemoteAuth Debug Events ---
 client.on("remote_session_saved", (session) => {

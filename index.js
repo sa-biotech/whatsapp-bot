@@ -16,7 +16,7 @@ const SUPABASE_KEY =
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "";
 const PORT = process.env.PORT || 3000;
 const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions"; // ✅ bucket name
-const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-new"; // ✅ clientId
+const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-960"; // ✅ clientId
 
 // --- Checks ---
 if (!SUPABASE_URL || !SUPABASE_KEY) {

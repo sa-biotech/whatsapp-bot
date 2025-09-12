@@ -1,12 +1,10 @@
-// index.js
-
 // --- LOAD ENV FIRST ---
 import "dotenv/config"; // ✅ Must be first line
 import express from "express";
 import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
 import pkgSupabase from "@supabase/supabase-js";
-import { SupabaseStore } from "./supabaseStore.js"; // ✅ custom store
+import { SupabaseStore } from "./supabaseStore.js"; // ✅ our fixed version
 
 const { Client, RemoteAuth } = pkg;
 const { createClient } = pkgSupabase;
@@ -17,6 +15,8 @@ const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "";
 const PORT = process.env.PORT || 3000;
+const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions"; // ✅ bucket name
+const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-new"; // ✅ clientId
 
 // --- Checks ---
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -32,12 +32,12 @@ if (!N8N_WEBHOOK_URL) {
 
 // --- Supabase client + Store ---
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const store = new SupabaseStore(supabase, "whatsapp_sessions");
+const store = new SupabaseStore(supabase, BUCKET_NAME);
 
 // --- WhatsApp client ---
 const client = new Client({
   authStrategy: new RemoteAuth({
-    clientId: "render-bot-new",
+    clientId: CLIENT_ID,
     store,
     backupSyncIntervalMs: 60000,
     syncFullHistory: true,

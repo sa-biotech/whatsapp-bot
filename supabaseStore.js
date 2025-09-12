@@ -1,86 +1,88 @@
-// supabaseStore.js
+import fs from "fs/promises";
+import path from "path";
+
 export class SupabaseStore {
-  constructor(supabase, table = "whatsapp_sessions") {
+  constructor(supabase, bucket = "whatsapp-sessions") {
     this.supabase = supabase;
-    this.table = table;
+    this.bucket = bucket;
   }
 
-  // Check if a session exists
+  // Check if a session exists in Supabase bucket
   async sessionExists({ session }) {
-    console.log("🔍 [SupabaseStore] Checking if session exists:", session);
-    const { data, error } = await this.supabase
-      .from(this.table)
-      .select("id")
-      .eq("id", session)
-      .single();
+    console.log("🔍 [SupabaseStore] Checking session in bucket:", session);
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .list("", { search: `${session}.zip` });
 
     if (error) {
-      if (error.code === "PGRST116") {
-        console.log("ℹ️ [SupabaseStore] No session found for:", session);
-        return false;
-      }
       console.error("❌ [SupabaseStore] sessionExists error:", error.message);
       return false;
     }
-    return !!data;
+
+    return data && data.length > 0;
   }
 
-  // Load session from DB
-  async extract({ session }) {
+  // Download session zip from bucket → save locally at given path
+  async extract({ session, path: extractPath }) {
     console.log("📥 [SupabaseStore] Extracting session:", session);
-    const { data, error } = await this.supabase
-      .from(this.table)
-      .select("session")
-      .eq("id", session)
-      .single();
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .download(`${session}.zip`);
 
     if (error || !data) {
-      console.log("⚠️ [SupabaseStore] No session found in DB, returning null");
+      console.log("⚠️ [SupabaseStore] No session found in bucket");
       return null;
     }
-    console.log("✅ [SupabaseStore] Session loaded from DB:", session);
-    return data.session;
+
+    // Save downloaded zip locally
+    await fs.writeFile(extractPath, Buffer.from(await data.arrayBuffer()));
+    console.log("✅ [SupabaseStore] Session ZIP written locally:", extractPath);
+
+    return extractPath;
   }
 
-  // Save or update session
-  async save(payload) {
-    console.log("📝 [SupabaseStore] Saving session...");
-    console.log("📦 [SupabaseStore] Full payload:", JSON.stringify(payload, null, 2));
+  // Upload session zip from local disk to Supabase bucket
+  async save({ session }) {
+    console.log("📝 [SupabaseStore] Saving session:", session);
 
-    const { session, data, ...rest } = payload;
+    const localZip = path.resolve(`${session}.zip`);
 
-    console.log("🔑 [SupabaseStore] session name:", session);
-    console.log("📦 [SupabaseStore] Raw session data:", data);
-    console.log("🛠️ [SupabaseStore] Extra payload:", rest);
+    try {
+      const fileData = await fs.readFile(localZip);
 
-    if (!data) {
-      console.log("⚠️ [SupabaseStore] Skip saving null session:", session);
-      return;
+      const { error } = await this.supabase.storage
+        .from(this.bucket)
+        .upload(`${session}.zip`, fileData, {
+          contentType: "application/zip",
+          upsert: true,
+        });
+
+      if (error) {
+        console.error("❌ [SupabaseStore] Save error:", error.message);
+        throw error;
+      }
+
+      console.log("✅ [SupabaseStore] Session saved to bucket:", `${session}.zip`);
+    } catch (err) {
+      console.error("❌ [SupabaseStore] Failed reading local zip:", err.message);
     }
-
-    const { error } = await this.supabase
-      .from(this.table)
-      .upsert({ id: session, session: data }, { onConflict: "id" });
-
-    if (error) {
-      console.error("❌ [SupabaseStore] Supabase save error:", error.message);
-      throw new Error(error.message);
-    }
-    console.log("✅ [SupabaseStore] Session saved in DB");
   }
 
-  // Delete session
+  // Delete session zip from Supabase bucket
   async delete({ session }) {
     console.log("🗑️ [SupabaseStore] Deleting session:", session);
-    const { error } = await this.supabase
-      .from(this.table)
-      .delete()
-      .eq("id", session);
+
+    const { error } = await this.supabase.storage
+      .from(this.bucket)
+      .remove([`${session}.zip`]);
 
     if (error) {
-      console.error("❌ [SupabaseStore] Supabase delete error:", error.message);
-      throw new Error(error.message);
+      console.error("❌ [SupabaseStore] Delete error:", error.message);
+      throw error;
     }
-    console.log("✅ [SupabaseStore] Session deleted from DB");
+
+    console.log("✅ [SupabaseStore] Session deleted from bucket:", session);
   }
 }

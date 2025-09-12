@@ -40,7 +40,7 @@ const client = new Client({
     clientId: CLIENT_ID,
     store,
     backupSyncIntervalMs: 60000,
-    syncFullHistory: true,
+    syncFullHistory: false,
   }),
   puppeteer: {
     headless: true,
@@ -53,6 +53,14 @@ const client = new Client({
       "--no-zygote",
       "--single-process",
       "--disable-gpu",
+      "--disable-background-networking",
+      "--disable-extensions",
+      "--disable-default-apps",
+      "--disable-translate",
+      "--disable-sync",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees"
     ],
   },
 });

@@ -39,7 +39,7 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-    backupSyncIntervalMs: 300000,
+    backupSyncIntervalMs: 0,
     syncFullHistory: false,
   }),
   puppeteer: {

@@ -32,13 +32,8 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-<<<<<<< HEAD
     backupSyncIntervalMs: 24 * 60 * 60 * 1000, // ✅ once per day
     syncFullHistory: false, // ✅ don't pull chat history
-=======
-    backupSyncIntervalMs: 86400000,
-    syncFullHistory: false,
->>>>>>> e7bbd55d576df4f9ee6fb0bfd53031bf017b04d4
   }),
   puppeteer: {
     headless: true,

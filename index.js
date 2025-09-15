@@ -4,7 +4,7 @@ import express from "express";
 import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
 import pkgSupabase from "@supabase/supabase-js";
-import { SupabaseStore } from "./supabaseStore.js"; // ✅ our fixed version
+import { SupabaseStore } from "./supabaseStore.js"; // ✅ minimal version
 
 const { Client, RemoteAuth } = pkg;
 const { createClient } = pkgSupabase;
@@ -15,19 +15,12 @@ const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "";
 const PORT = process.env.PORT || 3000;
-const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions"; // ✅ bucket name
-const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-960"; // ✅ clientId
+const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions";
+const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-960";
 
-// --- Checks ---
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error(
-    "❌ Supabase URL/KEY missing. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in env."
-  );
+  console.error("❌ Supabase URL/KEY missing");
   process.exit(1);
-}
-
-if (!N8N_WEBHOOK_URL) {
-  console.warn("⚠️ N8N_WEBHOOK_URL not set. Messages won’t be forwarded.");
 }
 
 // --- Supabase client + Store ---
@@ -39,8 +32,8 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-    backupSyncIntervalMs: 60000,
-    syncFullHistory: false,
+    backupSyncIntervalMs: 24 * 60 * 60 * 1000, // ✅ once per day
+    syncFullHistory: false, // ✅ don't pull chat history
   }),
   puppeteer: {
     headless: true,
@@ -49,7 +42,6 @@ const client = new Client({
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-accelerated-2d-canvas",
-      "--no-first-run",
       "--no-zygote",
       "--single-process",
       "--disable-gpu",
@@ -58,9 +50,6 @@ const client = new Client({
       "--disable-default-apps",
       "--disable-translate",
       "--disable-sync",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees"
     ],
   },
 });
@@ -72,31 +61,18 @@ client.on("qr", (qr) => {
 });
 
 client.on("ready", () => {
-  if (client.info && client.info.me) {
-    console.log(
-      `✅ WhatsApp ready: ${client.info.me.user} (${client.info.me.phone})`
-    );
-  } else {
-    console.log("✅ WhatsApp ready!");
-  }
+  console.log(`✅ WhatsApp ready: ${client.info?.me?.user || "?"}`);
 });
 
-client.on("authenticated", () => {
-  console.log("🔐 Authenticated!");
-});
-
-client.on("auth_failure", (msg) => {
-  console.error("⚠️ Auth failure:", msg);
-});
-
-client.on("disconnected", (reason) => {
-  console.warn("⚠️ Disconnected:", reason);
-});
+client.on("authenticated", () => console.log("🔐 Authenticated!"));
+client.on("auth_failure", (msg) => console.error("⚠️ Auth failure:", msg));
+client.on("disconnected", (reason) =>
+  console.warn("⚠️ Disconnected:", reason)
+);
 
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
-  // Ignore system messages like 'status@broadcast'
-  if (msg.from === "status@broadcast") return;
+  if (msg.from === "status@broadcast") return; // ignore status
 
   console.log(`📩 ${msg.from}: ${msg.body}`);
 
@@ -117,8 +93,8 @@ client.on("message", async (msg) => {
     }
 
     if (Array.isArray(replyData)) replyData = replyData[0];
-
     const replyText = replyData?.Reply || replyData?.reply;
+
     if (replyText) {
       await client.sendMessage(msg.from, replyText);
       console.log("💬 Sent reply:", replyText);
@@ -128,29 +104,10 @@ client.on("message", async (msg) => {
   }
 });
 
-
-// --- RemoteAuth Debug Events ---
-client.on("remote_session_saved", (session) => {
-  console.log("💾 [RemoteAuth] remote_session_saved triggered!");
-  console.log("📦 [RemoteAuth] Session data from event:", session);
-});
-
-client.on("remote_session_saved_local", (session) => {
-  console.log("💾 [RemoteAuth] remote_session_saved_local triggered!");
-  console.log("📦 [RemoteAuth] Local session data from event:", session);
-});
-
-client.on("remote_session_saved_remote", (session) => {
-  console.log("💾 [RemoteAuth] remote_session_saved_remote triggered!");
-  console.log("📦 [RemoteAuth] Remote session data from event:", session);
-});
-
 // --- Start bot ---
 client.initialize();
 
-// --- Tiny web server (for Render health checks) ---
+// --- Tiny web server (Render health checks) ---
 const app = express();
 app.get("/", (req, res) => res.send("✅ WhatsApp bot is running"));
-app.listen(PORT, () =>
-  console.log(`🌐 HTTP server running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));

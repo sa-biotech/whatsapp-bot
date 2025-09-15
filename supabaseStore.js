@@ -1,5 +1,4 @@
-import fsp from "fs/promises";
-import path from "path";
+import fs from "fs/promises";
 
 export class SupabaseStore {
   constructor(supabase, bucket = "whatsapp-sessions") {
@@ -7,47 +6,36 @@ export class SupabaseStore {
     this.bucket = bucket;
   }
 
-  // Only check if session exists
   async sessionExists({ session }) {
-    console.log("🔍 [SupabaseStore] Checking session:", session);
     const { data, error } = await this.supabase.storage
       .from(this.bucket)
       .list("", { search: `${session}.zip` });
-
-    if (error) {
-      console.error("❌ [SupabaseStore] sessionExists error:", error.message);
-      return false;
-    }
-
+    if (error) return false;
     return data && data.length > 0;
   }
 
-  // Only download session once on startup
-  async extract({ session, path: extractPath }) {
-    console.log("📥 [SupabaseStore] Extracting session:", session);
-
+  async extract({ session, path }) {
     const { data, error } = await this.supabase.storage
       .from(this.bucket)
       .download(`${session}.zip`);
+    if (error || !data) return null;
+    await fs.writeFile(path, Buffer.from(await data.arrayBuffer()));
+    return path;
+  }
 
-    if (error || !data) {
-      console.log("⚠️ [SupabaseStore] No session found in bucket");
-      return null;
+  async save({ session }) {
+    // ✅ Minimal: only save once (login). No repeated backups.
+    try {
+      const data = await fs.readFile(`${session}.zip`);
+      await this.supabase.storage
+        .from(this.bucket)
+        .upload(`${session}.zip`, data, { upsert: true });
+    } catch (err) {
+      console.error("❌ Save error:", err.message);
     }
-
-    const buf = Buffer.from(await data.arrayBuffer());
-    await fsp.writeFile(extractPath, buf);
-    console.log("✅ [SupabaseStore] Session restored from Supabase");
-
-    return extractPath;
   }
 
-  // 🚫 Disable saving completely
-  async save() {
-    console.log("⏩ [SupabaseStore] Save skipped (read-only mode)");
-  }
-
-  async delete() {
-    console.log("⏩ [SupabaseStore] Delete skipped (read-only mode)");
+  async delete({ session }) {
+    await this.supabase.storage.from(this.bucket).remove([`${session}.zip`]);
   }
 }

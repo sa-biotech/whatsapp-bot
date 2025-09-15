@@ -1,18 +1,16 @@
-// --- LOAD ENV FIRST ---
-import "dotenv/config"; 
+// --- ENV ---
+import "dotenv/config";
 import express from "express";
 import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
 import pkgSupabase from "@supabase/supabase-js";
-import { SupabaseStore } from "./supabaseStore.js"; // ✅ read-only store
+import { SupabaseStore } from "./supabaseStore.js";
 
 const { Client, RemoteAuth } = pkg;
 const { createClient } = pkgSupabase;
 
-// --- ENV CONFIG ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "";
 const PORT = process.env.PORT || 3000;
 const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions";
@@ -23,7 +21,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   process.exit(1);
 }
 
-// --- Supabase client + Store ---
+// --- Supabase client + store ---
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const store = new SupabaseStore(supabase, BUCKET_NAME);
 
@@ -32,8 +30,7 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-    backupSyncIntervalMs: null,  // ⏹ disable auto backups
-    syncFullHistory: false,      // ⏹ don't pull old chats
+    syncFullHistory: false, // ✅ no old messages
   }),
   puppeteer: {
     headless: true,
@@ -66,13 +63,11 @@ client.on("ready", () => {
 
 client.on("authenticated", () => console.log("🔐 Authenticated!"));
 client.on("auth_failure", (msg) => console.error("⚠️ Auth failure:", msg));
-client.on("disconnected", (reason) =>
-  console.warn("⚠️ Disconnected:", reason)
-);
+client.on("disconnected", (reason) => console.warn("⚠️ Disconnected:", reason));
 
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
-  if (msg.from === "status@broadcast") return; // ignore status
+  if (msg.from === "status@broadcast") return; // skip system
 
   console.log(`📩 ${msg.from}: ${msg.body}`);
 
@@ -104,10 +99,10 @@ client.on("message", async (msg) => {
   }
 });
 
-// --- Start bot ---
+// --- Start ---
 client.initialize();
 
-// --- Tiny web server (Render health checks) ---
+// --- Health check ---
 const app = express();
 app.get("/", (req, res) => res.send("✅ WhatsApp bot is running"));
 app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));

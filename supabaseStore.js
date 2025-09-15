@@ -1,73 +1,53 @@
+import fsp from "fs/promises";
+import path from "path";
+
 export class SupabaseStore {
-  constructor(supabase, table = "whatsapp_sessions") {
+  constructor(supabase, bucket = "whatsapp-sessions") {
     this.supabase = supabase;
-    this.table = table;
+    this.bucket = bucket;
   }
 
-  // Check if a session exists
-  async sessionExists({ session: id }) {
-    console.log("🔍 Checking if session exists:", id);
-    const { data, error } = await this.supabase
-      .from(this.table)
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
+  // Only check if session exists
+  async sessionExists({ session }) {
+    console.log("🔍 [SupabaseStore] Checking session:", session);
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .list("", { search: `${session}.zip` });
 
     if (error) {
-      console.error("❌ sessionExists error:", error.message);
+      console.error("❌ [SupabaseStore] sessionExists error:", error.message);
       return false;
     }
-    return !!data;
+
+    return data && data.length > 0;
   }
 
-  // Load session from DB
-  async extract({ session: id }) {
-    console.log("📥 Extracting session:", id);
-    const { data, error } = await this.supabase
-      .from(this.table)
-      .select("session")
-      .eq("id", id)
-      .maybeSingle();
+  // Only download session once on startup
+  async extract({ session, path: extractPath }) {
+    console.log("📥 [SupabaseStore] Extracting session:", session);
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .download(`${session}.zip`);
 
     if (error || !data) {
-      console.log("⚠️ No session found in DB, returning null");
+      console.log("⚠️ [SupabaseStore] No session found in bucket");
       return null;
     }
-    return data.session;
+
+    const buf = Buffer.from(await data.arrayBuffer());
+    await fsp.writeFile(extractPath, buf);
+    console.log("✅ [SupabaseStore] Session restored from Supabase");
+
+    return extractPath;
   }
 
-// Save or update session
-async save({ session, data }) {
-  console.log("📝 Saving session:", session);
-
-  if (!data) {
-    console.log("⚠️ Skip saving null session");
-    return;
+  // 🚫 Disable saving completely
+  async save() {
+    console.log("⏩ [SupabaseStore] Save skipped (read-only mode)");
   }
 
-  const { error } = await this.supabase
-    .from(this.table)
-    .upsert({ id: session, session: data }, { onConflict: "id" });
-
-  if (error) {
-    console.error("❌ Supabase save error:", error.message);
-    throw new Error(error.message);
-  }
-  console.log("✅ Session saved in DB");
-}
-
-  // Delete session
-  async delete({ session: id }) {
-    console.log("🗑️ Deleting session:", id);
-    const { error } = await this.supabase
-      .from(this.table)
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      console.error("❌ Supabase delete error:", error.message);
-      throw new Error(error.message);
-    }
-    console.log("✅ Session deleted from DB");
+  async delete() {
+    console.log("⏩ [SupabaseStore] Delete skipped (read-only mode)");
   }
 }

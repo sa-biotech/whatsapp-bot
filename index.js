@@ -30,6 +30,7 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
+    backupSyncIntervalMs: 2147483647,
     syncFullHistory: false, // ✅ no old messages
   }),
   puppeteer: {

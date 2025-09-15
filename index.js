@@ -69,6 +69,12 @@ client.on("disconnected", (reason) => console.warn("⚠️ Disconnected:", reaso
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
   if (msg.from === "status@broadcast") return; // skip system
+// Skip empty / non-text messages
+
+  if (!msg.body || msg.body.trim() === "") {
+    console.log(`⚪ Ignored non-text message from ${msg.from} (${msg.type})`);
+    return;
+  }
 
   console.log(`📩 ${msg.from}: ${msg.body}`);
 

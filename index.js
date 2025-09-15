@@ -30,8 +30,9 @@ const client = new Client({
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-    backupSyncIntervalMs: 2147483647,
-    syncFullHistory: false, // ✅ no old messages
+    backupSyncIntervalMs: 2147483647, // ~24 days, effectively disabled
+    syncFullHistory: false,           // ✅ no old messages
+    takeoverOnConflict: true,
   }),
   puppeteer: {
     headless: true,
@@ -48,9 +49,16 @@ const client = new Client({
       "--disable-default-apps",
       "--disable-translate",
       "--disable-sync",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
     ],
   },
 });
+
+// --- Startup cool-off ---
+const STARTUP_TIME = Date.now();
+const COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 
 // --- Events ---
 client.on("qr", (qr) => {
@@ -68,13 +76,15 @@ client.on("disconnected", (reason) => console.warn("⚠️ Disconnected:", reaso
 
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
-  if (msg.from === "status@broadcast") return; // skip system
-// Skip empty / non-text messages
-
-  if (!msg.body || msg.body.trim() === "") {
-    console.log(`⚪ Ignored non-text message from ${msg.from} (${msg.type})`);
+  // Ignore all during cool-off
+  if (Date.now() - STARTUP_TIME < COOLDOWN_MS) {
+    console.log(`⏳ Cool-off ignore: ${msg.from} (${msg.type})`);
     return;
   }
+
+  // Skip system + non-text messages
+  if (msg.from === "status@broadcast") return;
+  if (msg.type !== "chat" || !msg.body?.trim()) return;
 
   console.log(`📩 ${msg.from}: ${msg.body}`);
 
@@ -87,15 +97,16 @@ client.on("message", async (msg) => {
       body: JSON.stringify({ from: msg.from, message: msg.body }),
     });
 
-    let replyData;
+    // Use text + safe JSON parse
+    const text = await res.text();
+    let replyText = null;
     try {
-      replyData = await res.json();
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) replyText = data[0]?.Reply || data[0]?.reply;
+      else replyText = data?.Reply || data?.reply;
     } catch {
-      replyData = {};
+      // ignore invalid JSON
     }
-
-    if (Array.isArray(replyData)) replyData = replyData[0];
-    const replyText = replyData?.Reply || replyData?.reply;
 
     if (replyText) {
       await client.sendMessage(msg.from, replyText);

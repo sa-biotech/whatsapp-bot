@@ -1,8 +1,8 @@
 // --- ENV ---
 import "dotenv/config";
 import express from "express";
-import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
+import qrcode from "qrcode";
 
 const { Client } = pkg;
 
@@ -25,10 +25,12 @@ const client = new Client({
   },
 });
 
+let lastQR = "";
+
 // --- Events ---
-client.on("qr", (qr) => {
-  console.log("📲 QR RECEIVED - scan to login:");
-  qrcode.generate(qr, { small: true });
+client.on("qr", async (qr) => {
+  lastQR = await qrcode.toDataURL(qr);
+  console.log("📲 QR RECEIVED - open /qr in browser to scan");
 });
 
 client.on("ready", () => {
@@ -77,7 +79,15 @@ client.on("message", async (msg) => {
 // --- Start ---
 client.initialize();
 
-// --- Health check ---
+// --- Express server ---
 const app = express();
+
 app.get("/", (req, res) => res.send("✅ WhatsApp simple bot is running"));
+
+// QR endpoint
+app.get("/qr", (req, res) => {
+  if (!lastQR) return res.send("No QR yet, wait...");
+  res.send(`<h2>Scan this QR with WhatsApp</h2><img src="${lastQR}" />`);
+});
+
 app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));

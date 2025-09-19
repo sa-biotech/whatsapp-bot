@@ -53,35 +53,10 @@ export class SupabaseStore {
     return extractPath;
   }
 
-  // Save zip
+  // Save zip (DISABLED after discussed change)
   async save({ session }) {
-    console.log("📝 [SupabaseStore] Saving session:", session);
-
-    const localZip = path.resolve(`${session}.zip`);
-
-    try {
-      const fileStream = fs.createReadStream(localZip);
-
-      // Collect stream into buffer (Supabase API does not accept streams yet)
-      const chunks = [];
-      for await (const chunk of fileStream) chunks.push(chunk);
-      const buffer = Buffer.concat(chunks);
-
-      const { error } = await this.supabase.storage
-        .from(this.bucket)
-        .upload(`${session}.zip`, buffer, {
-          contentType: "application/zip",
-          upsert: true,
-        });
-
-      if (error) throw error;
-      console.log("✅ [SupabaseStore] Session saved:", `${session}.zip`);
-
-      // Auto-clean old tmp
-      await this.cleanTmp();
-    } catch (err) {
-      console.error("❌ [SupabaseStore] Save error:", err.message);
-    }
+    console.log("⏩ [SupabaseStore] save skipped for session:", session);
+    return;
   }
 
   // Delete session

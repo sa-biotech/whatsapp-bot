@@ -70,20 +70,25 @@ client.on("disconnected", (reason) =>
   console.warn("⚠️ Disconnected:", reason)
 );
 
-// --- Set a timestamp for when the bot started
+// --- Track bot startup ---
 const botStartTime = Date.now();
+const COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes cool-off
 
 // --- Handle incoming messages ---
 client.on("message", async (msg) => {
-  // ➡️ Filter old messages received before the bot started
-  // The 'timestamp' property is the time the message was sent (in seconds)
-  // We multiply by 1000 to convert it to milliseconds for comparison with Date.now()
+  // 1. Ignore old messages (sent before bot started)
   if (msg.timestamp * 1000 < botStartTime) {
-    console.log(`➡️ Ignoring old message from ${msg.from}: ${msg.body.substring(0, 20)}...`);
-    return; // Stop processing this message
+    return;
   }
 
-  if (msg.from === "status@broadcast") return; // ignore status
+  // 2. Ignore all messages during initial cool-off period
+  if (Date.now() - botStartTime < COOLDOWN_MS) {
+    return;
+  }
+
+  // 3. Ignore status broadcasts and non-text
+  if (msg.from === "status@broadcast") return;
+  if (msg.type !== "chat" || !msg.body?.trim()) return;
 
   console.log(`📩 ${msg.from}: ${msg.body}`);
 

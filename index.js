@@ -4,7 +4,7 @@ import express from "express";
 import qrcode from "qrcode-terminal";
 import pkg from "whatsapp-web.js";
 import pkgSupabase from "@supabase/supabase-js";
-import { SupabaseStore } from "./supabaseStore.js"; // ✅ minimal version
+import { SupabaseStore } from "./supabaseStore.js"; 
 
 const { Client, RemoteAuth } = pkg;
 const { createClient } = pkgSupabase;
@@ -29,14 +29,16 @@ const store = new SupabaseStore(supabase, BUCKET_NAME);
 
 // --- WhatsApp client ---
 const client = new Client({
+  sessionData: { skipMediaDownload: true },
   authStrategy: new RemoteAuth({
     clientId: CLIENT_ID,
     store,
-    backupSyncIntervalMs: 24 * 60 * 60 * 1000, // ✅ once per day
-    syncFullHistory: false, // ✅ don't pull chat history
+    backupSyncIntervalMs: 24 * 60 * 60 * 1000, 
+    syncFullHistory: false, 
   }),
   puppeteer: {
     headless: true,
+    // Minimal, essential arguments for low-resource environments
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -50,6 +52,8 @@ const client = new Client({
       "--disable-default-apps",
       "--disable-translate",
       "--disable-sync",
+      "--disable-software-rasterizer", // Further resource reduction
+      "--disable-web-security",        // Can sometimes reduce overhead
     ],
   },
 });
@@ -70,7 +74,7 @@ client.on("disconnected", (reason) =>
   console.warn("⚠️ Disconnected:", reason)
 );
 
-// --- Track bot startup ---
+// --- Track bot startup (COOLDOWN LOGIC RETAINED) ---
 const botStartTime = Date.now();
 const COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes cool-off
 
@@ -90,7 +94,7 @@ client.on("message", async (msg) => {
   if (msg.from === "status@broadcast") return;
   if (msg.type !== "chat" || !msg.body?.trim()) return;
 
-  console.log(`📩 ${msg.from}: ${msg.body}`);
+  console.log(`📩 ${msg.from}: ${msg.body.substring(0, 30)}...`);
 
   if (!N8N_WEBHOOK_URL) return;
 
@@ -113,7 +117,7 @@ client.on("message", async (msg) => {
 
     if (replyText) {
       await client.sendMessage(msg.from, replyText);
-      console.log("💬 Sent reply:", replyText);
+      console.log("💬 Sent reply:", String(replyText).substring(0, 30));
     }
   } catch (err) {
     console.error("❌ n8n webhook error:", err.message);

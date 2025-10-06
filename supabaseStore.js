@@ -17,7 +17,6 @@ export class SupabaseStore {
 
   // Check if a session exists
   async sessionExists({ session }) {
-    console.log("🔍 [SupabaseStore] Checking session:", session);
     const { data, error } = await this.supabase.storage
       .from(this.bucket)
       .list("", { search: `${session}.zip` });
@@ -45,17 +44,15 @@ export class SupabaseStore {
 
     const buf = Buffer.from(await data.arrayBuffer());
     await fsp.writeFile(extractPath, buf);
-    console.log("✅ [SupabaseStore] Session ZIP written locally:", extractPath);
 
-    // --- Auto-clean old zips (keep only latest 2) ---
+    // --- Auto-clean old zips (KEEP ONLY LATEST 1) ---
     await this.cleanTmp();
 
     return extractPath;
   }
 
-  // Save zip (DISABLED after discussed change)
+  // Save zip (DISABLED by design)
   async save({ session }) {
-    console.log("⏩ [SupabaseStore] save skipped for session:", session);
     return;
   }
 
@@ -75,20 +72,29 @@ export class SupabaseStore {
     console.log("✅ [SupabaseStore] Deleted:", session);
   }
 
-  // --- Auto-clean tmp files ---
+  /**
+   * Cleans the temporary directory, keeping only the most recently modified file (the current session).
+   */
   async cleanTmp() {
     try {
       const files = await fsp.readdir(this.tmpDir);
-      if (files.length > 2) {
-        // delete oldest
+      // 🔥 CHANGE HERE: If more than 1 file exists, delete the older ones.
+      if (files.length > 1) {
+        const KEEP_COUNT = 1; 
+
         const stats = await Promise.all(
           files.map(async f => {
             const st = await fsp.stat(path.join(this.tmpDir, f));
             return { file: f, time: st.mtimeMs };
           })
         );
+        
+        // Sort by time (oldest first)
         stats.sort((a, b) => a.time - b.time);
-        const toDelete = stats.slice(0, files.length - 2);
+        
+        // Slice to delete all but the newest one
+        const toDelete = stats.slice(0, files.length - KEEP_COUNT);
+        
         for (const f of toDelete) {
           await fsp.unlink(path.join(this.tmpDir, f.file));
           console.log("🧹 [SupabaseStore] Removed old tmp:", f.file);

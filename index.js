@@ -1,96 +1,75 @@
 // --- LOAD ENV FIRST ---
-import "dotenv/config"; // ✅ Must be first line
+import "dotenv/config";
 import express from "express";
-import qrcode from "qrcode-terminal";
+import qrcode from "qrcode";
 import pkg from "whatsapp-web.js";
-import pkgSupabase from "@supabase/supabase-js";
-import { SupabaseStore } from "./supabaseStore.js"; 
 
-const { Client, RemoteAuth } = pkg;
-const { createClient } = pkgSupabase;
+const { Client } = pkg;
 
 // --- ENV CONFIG ---
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "";
 const PORT = process.env.PORT || 3000;
-const BUCKET_NAME = process.env.SUPABASE_BUCKET || "whatsapp-sessions";
-const CLIENT_ID = process.env.WHATSAPP_CLIENT_ID || "render-bot-960";
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("❌ Supabase URL/KEY missing");
-  process.exit(1);
-}
-
-// --- Supabase client + Store ---
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const store = new SupabaseStore(supabase, BUCKET_NAME);
-
-// --- WhatsApp client ---
-const client = new Client({
-  sessionData: { skipMediaDownload: true },
-  authStrategy: new RemoteAuth({
-    clientId: CLIENT_ID,
-    store,
-    backupSyncIntervalMs: 24 * 60 * 60 * 1000, 
-    syncFullHistory: false, 
-  }),
-  puppeteer: {
-    headless: true,
-    // Minimal, essential arguments for low-resource environments
-    args: [
+// Optional chromium flags (for Render / low RAM)
+const CHROMIUM_FLAGS = process.env.CHROMIUM_FLAGS
+  ? process.env.CHROMIUM_FLAGS.split(" ")
+  : [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-zygote",
-      "--single-process",
       "--disable-gpu",
+      "--disable-accelerated-2d-canvas",
       "--disable-background-networking",
       "--disable-extensions",
       "--disable-default-apps",
       "--disable-translate",
       "--disable-sync",
-      "--disable-software-rasterizer", // Further resource reduction
-      "--disable-web-security",        // Can sometimes reduce overhead
-    ],
+      "--disable-software-rasterizer",
+    ];
+
+// --- Express app ---
+const app = express();
+
+// Store latest QR image
+let qrData = "";
+
+// --- WhatsApp client (stateless, no session persistence) ---
+const client = new Client({
+  puppeteer: {
+    headless: true,
+    args: CHROMIUM_FLAGS,
   },
 });
 
-// --- Events ---
-client.on("qr", (qr) => {
-  console.log("📲 QR RECEIVED - scan to login:");
-  qrcode.generate(qr, { small: true });
+// --- WhatsApp Events ---
+client.on("qr", async (qr) => {
+  console.log("📲 QR RECEIVED - open /qr to scan");
+
+  try {
+    qrData = await qrcode.toDataURL(qr);
+    console.log("✅ QR code generated. Visit /qr to scan.");
+  } catch (err) {
+    console.error("❌ Failed to generate QR image:", err.message);
+  }
 });
 
 client.on("ready", () => {
   console.log(`✅ WhatsApp ready: ${client.info?.me?.user || "?"}`);
+  qrData = ""; // clear QR once connected
 });
 
 client.on("authenticated", () => console.log("🔐 Authenticated!"));
 client.on("auth_failure", (msg) => console.error("⚠️ Auth failure:", msg));
-client.on("disconnected", (reason) =>
-  console.warn("⚠️ Disconnected:", reason)
-);
+client.on("disconnected", (reason) => console.warn("⚠️ Disconnected:", reason));
 
-// --- Track bot startup (COOLDOWN LOGIC RETAINED) ---
+// --- Cooldown logic ---
 const botStartTime = Date.now();
-const COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes cool-off
+const COOLDOWN_MS = 2 * 60 * 1000;
 
-// --- Handle incoming messages ---
+// --- Message handler ---
 client.on("message", async (msg) => {
-  // 1. Ignore old messages (sent before bot started)
-  if (msg.timestamp * 1000 < botStartTime) {
-    return;
-  }
-
-  // 2. Ignore all messages during initial cool-off period
-  if (Date.now() - botStartTime < COOLDOWN_MS) {
-    return;
-  }
-
-  // 3. Ignore status broadcasts and non-text
+  if (msg.timestamp * 1000 < botStartTime) return;
+  if (Date.now() - botStartTime < COOLDOWN_MS) return;
   if (msg.from === "status@broadcast") return;
   if (msg.type !== "chat" || !msg.body?.trim()) return;
 
@@ -124,10 +103,32 @@ client.on("message", async (msg) => {
   }
 });
 
-// --- Start bot ---
+// --- Initialize WhatsApp ---
 client.initialize();
 
-// --- Tiny web server (Render health checks) ---
-const app = express();
-app.get("/", (req, res) => res.send("✅ WhatsApp bot is running"));
+// --- Express routes ---
+app.get("/", (req, res) => res.send("✅ WhatsApp bot is running (no session mode)"));
+
+app.get("/qr", (req, res) => {
+  if (!qrData) {
+    return res.send(`
+      <html>
+        <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+          <h2>QR not generated yet</h2>
+          <p>Wait a few seconds or check Render logs to confirm initialization.</p>
+        </body>
+      </html>
+    `);
+  }
+  res.send(`
+    <html>
+      <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+        <h2>📱 Scan this QR with WhatsApp</h2>
+        <img src="${qrData}" style="width:300px;height:300px"/>
+        <p>After scanning, this page will automatically expire when connected.</p>
+      </body>
+    </html>
+  `);
+});
+
 app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));

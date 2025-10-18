@@ -2,14 +2,12 @@
 FROM node:22-slim
 
 # 2. Install required system dependencies for Puppeteer (Chromium)
-# This addresses the "libgobject-2.0.so.0: cannot open shared object file" error
+# NOTE: libglib2.0-0 provides the missing libgobject-2.0.so.0 file.
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     ca-certificates \
     fonts-liberation \
-    libgobject-2.0-0 \
-    libappindicator3-1 \
     libasound2 \
     libatk-bridge2.0-0 \
     libcups2 \
@@ -22,10 +20,8 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxfixes3 \
     libxrandr2 \
-    libxshmfence6 \
     libxtst6 \
-    lsb-release \
-    xdg-utils \
+    libglib2.0-0 \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,7 +29,6 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # 4. Copy package files and install dependencies
-# This is necessary to use Docker build cache efficiently
 COPY package*.json ./
 RUN npm install
 
@@ -41,5 +36,4 @@ RUN npm install
 COPY . .
 
 # 6. Set the command to start your application
-# Uses the 'start' script defined in your package.json
 CMD [ "npm", "start" ]

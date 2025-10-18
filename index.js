@@ -12,20 +12,20 @@ const PORT = process.env.PORT || 3000;
 
 // Optional chromium flags (for Render / low RAM)
 const CHROMIUM_FLAGS = process.env.CHROMIUM_FLAGS
-  ? process.env.CHROMIUM_FLAGS.split(" ")
-  : [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-accelerated-2d-canvas",
-      "--disable-background-networking",
-      "--disable-extensions",
-      "--disable-default-apps",
-      "--disable-translate",
-      "--disable-sync",
-      "--disable-software-rasterizer",
-    ];
+  ? process.env.CHROMIUM_FLAGS.split(" ")
+  : [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-accelerated-2d-canvas",
+      "--disable-background-networking",
+      "--disable-extensions",
+      "--disable-default-apps",
+      "--disable-translate",
+      "--disable-sync",
+      "--disable-software-rasterizer",
+    ];
 
 // --- Express app ---
 const app = express();
@@ -35,27 +35,27 @@ let qrData = "";
 
 // --- WhatsApp client (stateless, no session persistence) ---
 const client = new Client({
-  puppeteer: {
-    headless: true,
-    args: CHROMIUM_FLAGS,
-  },
+  puppeteer: {
+    headless: true,
+    args: CHROMIUM_FLAGS,
+  },
 });
 
 // --- WhatsApp Events ---
 client.on("qr", async (qr) => {
-  console.log("📲 QR RECEIVED - open /qr to scan");
+  console.log("📲 QR RECEIVED - open /qr to scan");
 
-  try {
-    qrData = await qrcode.toDataURL(qr);
-    console.log("✅ QR code generated. Visit /qr to scan.");
-  } catch (err) {
-    console.error("❌ Failed to generate QR image:", err.message);
-  }
+  try {
+    qrData = await qrcode.toDataURL(qr);
+    console.log("✅ QR code generated. Visit /qr to scan.");
+  } catch (err) {
+    console.error("❌ Failed to generate QR image:", err.message);
+  }
 });
 
 client.on("ready", () => {
-  console.log(`✅ WhatsApp ready: ${client.info?.me?.user || "?"}`);
-  qrData = ""; // clear QR once connected
+  console.log(`✅ WhatsApp ready: ${client.info?.me?.user || "?"}`);
+  qrData = ""; // clear QR once connected
 });
 
 client.on("authenticated", () => console.log("🔐 Authenticated!"));
@@ -68,39 +68,39 @@ const COOLDOWN_MS = 2 * 60 * 1000;
 
 // --- Message handler ---
 client.on("message", async (msg) => {
-  if (msg.timestamp * 1000 < botStartTime) return;
-  if (Date.now() - botStartTime < COOLDOWN_MS) return;
-  if (msg.from === "status@broadcast") return;
-  if (msg.type !== "chat" || !msg.body?.trim()) return;
+  if (msg.timestamp * 1000 < botStartTime) return;
+  if (Date.now() - botStartTime < COOLDOWN_MS) return;
+  if (msg.from === "status@broadcast") return;
+  if (msg.type !== "chat" || !msg.body?.trim()) return;
 
-  console.log(`📩 ${msg.from}: ${msg.body.substring(0, 30)}...`);
+  console.log(`📩 ${msg.from}: ${msg.body.substring(0, 30)}...`);
 
-  if (!N8N_WEBHOOK_URL) return;
+  if (!N8N_WEBHOOK_URL) return;
 
-  try {
-    const res = await fetch(N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: msg.from, message: msg.body }),
-    });
+  try {
+    const res = await fetch(N8N_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: msg.from, message: msg.body }),
+    });
 
-    let replyData;
-    try {
-      replyData = await res.json();
-    } catch {
-      replyData = {};
-    }
+    let replyData;
+    try {
+      replyData = await res.json();
+    } catch {
+      replyData = {};
+    }
 
-    if (Array.isArray(replyData)) replyData = replyData[0];
-    const replyText = replyData?.Reply || replyData?.reply;
+    if (Array.isArray(replyData)) replyData = replyData[0];
+    const replyText = replyData?.Reply || replyData?.reply;
 
-    if (replyText) {
-      await client.sendMessage(msg.from, replyText);
-      console.log("💬 Sent reply:", String(replyText).substring(0, 30));
-    }
-  } catch (err) {
-    console.error("❌ n8n webhook error:", err.message);
-  }
+    if (replyText) {
+      await client.sendMessage(msg.from, replyText);
+      console.log("💬 Sent reply:", String(replyText).substring(0, 30));
+    }
+  } catch (err) {
+    console.error("❌ n8n webhook error:", err.message);
+  }
 });
 
 // --- Initialize WhatsApp ---
@@ -110,25 +110,25 @@ client.initialize();
 app.get("/", (req, res) => res.send("✅ WhatsApp bot is running (no session mode)"));
 
 app.get("/qr", (req, res) => {
-  if (!qrData) {
-    return res.send(`
-      <html>
-        <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
-          <h2>QR not generated yet</h2>
-          <p>Wait a few seconds or check Render logs to confirm initialization.</p>
-        </body>
-      </html>
-    `);
-  }
-  res.send(`
-    <html>
-      <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
-        <h2>📱 Scan this QR with WhatsApp</h2>
-        <img src="${qrData}" style="width:300px;height:300px"/>
-        <p>After scanning, this page will automatically expire when connected.</p>
-      </body>
-    </html>
-  `);
+  if (!qrData) {
+    return res.send(`
+      <html>
+        <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+          <h2>QR not generated yet</h2>
+          <p>Wait a few seconds or check Render logs to confirm initialization.</p>
+        </body>
+      </html>
+    `);
+  }
+  res.send(`
+    <html>
+      <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+        <h2>📱 Scan this QR with WhatsApp</h2>
+        <img src="${qrData}" style="width:300px;height:300px"/>
+        <p>After scanning, this page will automatically expire when connected.</p>
+      </body>
+    </html>
+  `);
 });
 
 app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));
